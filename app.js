@@ -2,17 +2,13 @@ const express = require('express')
 const app = express()
 const cors=require('cors')
 require('dotenv').config()
-const port = process.env.PORT
+const PORT = process.env.PORT
 app.use(cors())
 const axios=require('axios')
-const URL='http://api.weatherapi.com/v1/forecast.json';
-const KEY='f17b33956c554c1b985234920223008';
-const MOVIE_KEY='ec24eb4a018f6d39a3abb894b537b65c';
-const MOVIE_URL='https://api.themoviedb.org/3/search/movie';
-const displayWeather=require('./modules')
-
-
-
+let dataStorageW={};
+let dataStorageM={};
+var DisplayWeather=require('./source.js');
+var DisplayMovies=require('./source.js');
 
 
 
@@ -31,17 +27,34 @@ app.get('/getweather', getweatherHandler);
 async function getweatherHandler(req,res){
 
     const reqCity = req.query.city;
-    
-    
-    
-     await axios.get(`http://api.weatherapi.com/v1/forecast.json?key=${KEY}&q=${reqCity}&days=1`).then((result)=>{
-        let responsedData= result.data;
-        let shapedData= new DisplayWeather(responsedData);
-        res.send(shapedData);
+    if (dataStorageW[reqCity]===undefined){
 
-        } );          
+        
+   
 
-    return res.send()
+    
+    
+    
+     await axios.get(`http://api.weatherapi.com/v1/forecast.json?key=${process.env.WEATHER_KEY}&q=${reqCity}&days=3`).then((result)=>{
+        let responsedData= result.data.forecast.forecastday;
+        const newArr=[];
+        responsedData.map(element=>{
+            newArr.push( new DisplayWeather.DisplayWeather(element))
+
+        })
+        dataStorageW[reqCity]=newArr;
+
+       
+        res.send(newArr)
+        console.log('idont the data')
+
+        } )}       
+
+        else{
+
+            res.status(200).send(dataStorageW[reqCity])
+            console.log('ihave the data')
+        }
       
 }   
 
@@ -49,46 +62,44 @@ app.get('/movie',getMovieHandler);
 
 async function getMovieHandler(req,res){
 
-    const reqCity = req.query.city
-    await axios.get(`${MOVIE_URL}?api_key=${MOVIE_KEY}&query=${reqCity}`).then((result)=>{
+    const reqCity = req.query.city;
+    if (dataStorageM[reqCity]===undefined){
+
+    await axios.get(`${process.env.MOVIE_URL}?api_key=${process.env.MOVIE_KEY}&query=${reqCity}`).then((result)=>{
         
     // return array of movies .
     let lastResult= result.data.results;
     
-    const movieArr=[] 
+    const movieArr=[] ;
     lastResult.forEach(value => {
  
 
-    movieArr.push({title:value.original_title,
-        overview:value.overview,
-        total:value.vote_count,
-        average:value.vote_average,
-        img:value.poster_path,
-        date:value.release_date});
+        movieArr.push(new DisplayMovies.DisplayMovies(value));
     });
    
-
-    console.log(movieArr)
-    res.send(movieArr)
+    dataStorageM[reqCity]=movieArr;
+    
+    res.send(dataStorageM[reqCity])
        })
+    
+
+
+    .catch(error=>{
+
+        res.send(error)
+    })}
+
+    else{
+        res.status(200).send(dataStorageM[reqCity]);
+        console.log('ihave the data')
+    }
 }
 
-class DisplayWeather{
-
-
-    constructor(value)
-    
-    {
-        this.forecast=value.current.condition.text;
-        this.localTime=value.location.localtime;
-
-    }
-
-} 
 
 
 
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+
+app.listen(PORT, () => {
+  console.log(`Example app listening on port ${PORT}`)
 })
